@@ -4,17 +4,16 @@ import axios from 'axios';
 import './Login.css';
 
 const Login = ({ onLogin }) => {
-  // 상태 관리
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  // 로그인 폼 제출 처리
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
     try {
-      // 백엔드 API에 로그인 요청
       const response = await axios.post('http://localhost:8000/token', 
         new URLSearchParams({
           'username': username,
@@ -26,11 +25,21 @@ const Login = ({ onLogin }) => {
           }
         }
       );
-      // 로그인 성공 시 부모 컴포넌트에 알림
       onLogin(response.data);
     } catch (error) {
       console.error('Login failed:', error);
-      setError('Login failed. Please check your credentials.');
+      if (error.response) {
+        // 서버가 응답을 반환한 경우
+        setError(error.response.data.detail || 'Login failed. Please check your credentials.');
+      } else if (error.request) {
+        // 요청이 전송되었지만 응답을 받지 못한 경우
+        setError('No response from server. Please try again later.');
+      } else {
+        // 요청 설정 중에 오류가 발생한 경우
+        setError('An error occurred. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -38,9 +47,7 @@ const Login = ({ onLogin }) => {
     <div className="login-container">
       <form onSubmit={handleSubmit} className="login-form">
         <h2>Login</h2>
-        {/* 에러 메시지 표시 */}
         {error && <p className="error">{error}</p>}
-        {/* 사용자명 입력 필드 */}
         <input
           type="text"
           value={username}
@@ -48,7 +55,6 @@ const Login = ({ onLogin }) => {
           placeholder="Username"
           required
         />
-        {/* 비밀번호 입력 필드 */}
         <input
           type="password"
           value={password}
@@ -56,8 +62,9 @@ const Login = ({ onLogin }) => {
           placeholder="Password"
           required
         />
-        {/* 로그인 버튼 */}
-        <button type="submit">Login</button>
+        <button type="submit" disabled={isLoading}>
+          {isLoading ? 'Logging in...' : 'Login'}
+        </button>
       </form>
     </div>
   );
