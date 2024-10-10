@@ -5,6 +5,8 @@ import BackpackSearch from './BackpackSearch';
 import Sidebar from './Sidebar';
 import { fetchTables, fetchServers } from './api';
 import './Dashboard.css';
+import './PlayerSearch.css';
+import './BackpackSearch.css';
 
 const Dashboard = ({ user, onLogout }) => {
   const [tables, setTables] = useState([]);

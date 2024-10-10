@@ -1,125 +1,98 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import SearchControls from './SearchControls';
-import Pagination from './Pagination';
+import React, { useState, useCallback } from 'react';
 import { fetchPlayerColumns, fetchPlayerData } from './api';
+import './PlayerSearch.css';
 
 const PlayerSearch = ({ servers }) => {
   const [selectedServer, setSelectedServer] = useState(null);
   const [playerColumns, setPlayerColumns] = useState([]);
   const [selectedColumn, setSelectedColumn] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [playerData, setPlayerData] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
+  const [playerData, setPlayerData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const handleServerSelect = async (server) => {
     setSelectedServer(server);
     setSearchTerm('');
-    setCurrentPage(1);
-    setPlayerData([]);
+    setPlayerData(null);
     try {
       const columns = await fetchPlayerColumns(server.db_name);
-      console.log('Fetched columns:', columns);
       setPlayerColumns(columns);
       setSelectedColumn(columns[0]);
     } catch (err) {
-      console.error('Error fetching columns:', err);
       setError(err.message);
     }
   };
 
-  const loadPlayerData = useCallback((page = 1, column, search) => {
+  const loadPlayerData = useCallback(() => {
     if (!selectedServer) return;
     setIsLoading(true);
-    console.log(`Fetching data for ${selectedServer.db_name}, page ${page}, column ${column}, search ${search}`);
-    fetchPlayerData(selectedServer.db_name, page, column, search)
+    fetchPlayerData(selectedServer.db_name, 1, selectedColumn, searchTerm)
       .then(response => {
-        console.log('Server response:', response);
-        setPlayerData(response.data);
-        setTotalPages(response.total_pages);
-        setCurrentPage(page);
+        setPlayerData(response.data[0]);
       })
       .catch(err => {
-        console.error('Error fetching player data:', err);
         setError(err.message);
       })
       .finally(() => setIsLoading(false));
-  }, [selectedServer]);
+  }, [selectedServer, selectedColumn, searchTerm]);
 
-  const handleSearch = () => {
-    loadPlayerData(1, selectedColumn, searchTerm);
+  const handleSearch = (e) => {
+    e.preventDefault();
+    loadPlayerData();
   };
-
-  const handlePageChange = (newPage) => {
-    loadPlayerData(newPage, selectedColumn, searchTerm);
-  };
-
-  useEffect(() => {
-    console.log('Current playerData:', playerData);
-  }, [playerData]);
 
   if (error) {
-    console.error('Render error:', error);
     return <div className="error">Error: {error}</div>;
   }
 
   return (
     <div className="player-search">
       <h2>Search Players</h2>
-      <select onChange={(e) => handleServerSelect(JSON.parse(e.target.value))}>
-        <option value="">Select a server</option>
-        {servers.map((server) => (
-          <option key={server.id} value={JSON.stringify(server)}>
-            {server.name}
-          </option>
-        ))}
-      </select>
-      {selectedServer && (
-        <>
-          <SearchControls
-            columns={playerColumns}
-            selectedColumn={selectedColumn}
-            onColumnChange={setSelectedColumn}
-            searchTerm={searchTerm}
-            onSearchTermChange={setSearchTerm}
-            onSearch={handleSearch}
-          />
-          {isLoading ? (
-            <div className="loading">Loading data...</div>
-          ) : playerData.length > 0 ? (
-            <>
-              <div className="table-container">
-                <table>
-                  <thead>
-                    <tr>
-                      {Object.keys(playerData[0]).map((key) => (
-                        <th key={key}>{key}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {playerData.map((player, index) => (
-                      <tr key={index}>
-                        {Object.values(player).map((value, cellIndex) => (
-                          <td key={cellIndex}>{String(value)}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+      <form onSubmit={handleSearch} className="search-form">
+        <select 
+          value={selectedServer ? JSON.stringify(selectedServer) : ''}
+          onChange={(e) => handleServerSelect(JSON.parse(e.target.value))}
+        >
+          <option value="">Select a server</option>
+          {servers.map((server) => (
+            <option key={server.id} value={JSON.stringify(server)}>
+              {server.name}
+            </option>
+          ))}
+        </select>
+        <select 
+          value={selectedColumn}
+          onChange={(e) => setSelectedColumn(e.target.value)}
+        >
+          {playerColumns.map((column) => (
+            <option key={column} value={column}>{column}</option>
+          ))}
+        </select>
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search..."
+        />
+        <button type="submit">Search</button>
+      </form>
+      {isLoading ? (
+        <div className="loading">Loading data...</div>
+      ) : playerData ? (
+        <div className="player-info">
+          <h3>Player Information</h3>
+          <div className="info-grid">
+            {Object.entries(playerData).map(([key, value]) => (
+              <div key={key} className="info-item">
+                <span className="info-label">{key}:</span>
+                <span className="info-value">{value}</span>
               </div>
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-              />
-            </>
-          ) : (
-            <div className="no-results">No results found.</div>
-          )}
-        </>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="no-results">No player found. Please search for a player.</div>
       )}
     </div>
   );
